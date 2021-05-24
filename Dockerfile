@@ -1,31 +1,32 @@
 FROM alpine
 
-LABEL maintainer="Andy Attebery" mail="me@andyattebery.com"
-LABEL description="rTorrent in tmux"
-LABEL website="https://github.com/andyattebery/rtorrent-tmux-docker"
 LABEL version="1.0"
 
-ARG UGID=666
+ARG PUID=1000
+ARG PGID=1000
+ARG RTORRENT_PORT=51745
+ARG RTORRENT_DHT_PORT=51750
+ARG RTORRENT_SCGI_PORT=5000
 
-RUN addgroup -g $UGID rtorrent && \
-    adduser -S -u $UGID -G rtorrent rtorrent && \
-    apk add --no-cache rtorrent && \
-    mkdir -p /home/rtorrent/rtorrent/config.d && \
-    mkdir /home/rtorrent/rtorrent/.session && \
-    mkdir /home/rtorrent/rtorrent/download && \
-    mkdir /home/rtorrent/rtorrent/watch && \
-    chown -R rtorrent:rtorrent /home/rtorrent/rtorrent
+ENV PUID=$PUID PGID=$PGID
 
-COPY --chown=rtorrent:rtorrent config.d/ /home/rtorrent/rtorrent/config.d/
-COPY --chown=rtorrent:rtorrent .rtorrent.rc /home/rtorrent/
+RUN addgroup --gid $PGID rtorrent && \
+    adduser --system --shell /bin/ash --home /home/rtorrent --uid $PUID --ingroup rtorrent rtorrent && \
+    apk add --no-cache  rtorrent \
+                        ts \
+                        tmux && \
+    mkdir /session && \
+    mkdir /downloads && \
+    mkdir /torrents && \
+    mkdir /logs && \
+    chown -R rtorrent:rtorrent /session /downloads /torrents /logs /home/rtorrent
 
-VOLUME /home/rtorrent/rtorrent/.session
+COPY --chown=rtorrent:rtorrent entrypoint.sh /
 
-EXPOSE 16891
-EXPOSE 6881
-EXPOSE 6881/udp
-EXPOSE 50000
+VOLUME /session /downloads /torrents /logs /home/rtorrent
+
+EXPOSE $RTORRENT_SCGI_PORT $RTORRENT_DHT_PORT $RTORRENT_DHT_PORT/udp $RTORRENT_PORT
 
 USER rtorrent
 
-CMD ["rtorrent"]
+ENTRYPOINT ["/entrypoint.sh"]
